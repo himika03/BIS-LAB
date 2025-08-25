@@ -1,0 +1,106 @@
+import random
+import math
+
+
+cities = [
+    (60, 200), (180, 200), (80, 180), (140, 180),
+    (20, 160), (100, 160), (200, 160), (140, 140),
+    (40, 120), (100, 120), (180, 100), (60, 80),
+    (120, 80), (180, 60), (20, 40), (100, 40),
+    (200, 40), (20, 20), (60, 20), (160, 20)
+]
+
+POP_SIZE = 100
+GENERATIONS = 500
+MUTATION_RATE = 0.1
+TOURNAMENT_SIZE = 5
+ELITISM_COUNT = 2
+
+def distance(city1, city2):
+    return math.sqrt((city1[0] - city2[0])**2 + (city1[1] - city2[1])**2)
+
+def total_distance(tour):
+    dist = 0
+    for i in range(len(tour)):
+        dist += distance(cities[tour[i]], cities[tour[(i+1) % len(tour)]])
+    return dist
+
+def create_genotype():
+   
+    return [random.random() for _ in range(len(cities))]
+
+def express(genotype):
+   
+    city_indices = list(range(len(genotype)))
+    sorted_cities = sorted(city_indices, key=lambda i: genotype[i])
+    return sorted_cities
+
+def fitness(genotype):
+    tour = express(genotype)
+    dist = total_distance(tour)
+    return 1 / dist
+
+def tournament_selection(population, fitnesses):
+    selected = []
+    for _ in range(len(population)):
+        aspirants = random.sample(list(zip(population, fitnesses)), TOURNAMENT_SIZE)
+        winner = max(aspirants, key=lambda x: x[1])[0]
+        selected.append(winner)
+    return selected
+
+def crossover(parent1, parent2):
+   
+    point = random.randint(1, len(parent1) - 2)
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+    return child1, child2
+
+def mutate(genotype):
+    for i in range(len(genotype)):
+        if random.random() < MUTATION_RATE:
+           
+            genotype[i] += random.gauss(0, 0.1)
+            genotype[i] = min(max(genotype[i], 0.0), 1.0)  
+    return genotype
+
+def next_generation(population):
+    fitnesses = [fitness(ind) for ind in population]
+   
+    sorted_pop = [x for _, x in sorted(zip(fitnesses, population), key=lambda pair: pair[0], reverse=True)]
+    next_pop = sorted_pop[:ELITISM_COUNT]
+
+    selected = tournament_selection(population, fitnesses)
+    while len(next_pop) < POP_SIZE:
+        p1, p2 = random.sample(selected, 2)
+        c1, c2 = crossover(p1, p2)
+        c1 = mutate(c1)
+        c2 = mutate(c2)
+        next_pop.append(c1)
+        if len(next_pop) < POP_SIZE:
+            next_pop.append(c2)
+    return next_pop
+
+def genetic_algorithm():
+    population = [create_genotype() for _ in range(POP_SIZE)]
+    best_genotype = None
+    best_fitness = -float('inf')
+
+    for gen in range(GENERATIONS):
+        population = next_generation(population)
+        fitnesses = [fitness(ind) for ind in population]
+        max_fit = max(fitnesses)
+        if max_fit > best_fitness:
+            best_fitness = max_fit
+            best_genotype = population[fitnesses.index(max_fit)]
+        if gen % 50 == 0 or gen == GENERATIONS - 1:
+            best_tour = express(best_genotype)
+            print(f"Gen {gen} Best distance: {1/best_fitness:.2f}")
+
+    return express(best_genotype), 1 / best_fitness
+
+if __name__ == "__main__":
+    best_tour, best_dist = genetic_algorithm()
+    print("\nBest tour found:")
+    print(best_tour)
+    print(f"Total distance: {best_dist:.2f}")
+
