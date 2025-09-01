@@ -1,0 +1,69 @@
+import numpy as np
+
+# Simplified solar irradiance model (mock function)
+def solar_irradiance(tilt, azimuth):
+    ideal_tilt = 30
+    ideal_azimuth = 180
+    tilt_penalty = np.exp(-((tilt - ideal_tilt) ** 2) / (2 * 15 ** 2))
+    azimuth_penalty = np.exp(-((azimuth - ideal_azimuth) ** 2) / (2 * 40 ** 2))
+    irradiance = 6 * tilt_penalty * azimuth_penalty
+    return irradiance
+
+# Fitness function (to minimize)
+def fitness_function(position):
+    tilt, azimuth = position
+    return -solar_irradiance(tilt, azimuth)
+
+class Particle:
+    def __init__(self, bounds):
+        self.position = np.random.uniform(bounds[:, 0], bounds[:, 1])
+        self.velocity = np.random.uniform(-1, 1, len(bounds))
+        self.best_position = self.position.copy()
+        self.best_score = fitness_function(self.position)
+
+    def update_velocity(self, global_best, w, c1, c2):
+        r1, r2 = np.random.rand(2)
+        cognitive = c1 * r1 * (self.best_position - self.position)
+        social = c2 * r2 * (global_best - self.position)
+        self.velocity = w * self.velocity + cognitive + social
+
+    def update_position(self, bounds):
+        self.position += self.velocity
+        self.position = np.clip(self.position, bounds[:, 0], bounds[:, 1])
+        score = fitness_function(self.position)
+        if score < self.best_score:
+            self.best_score = score
+            self.best_position = self.position.copy()
+
+def pso(num_particles=5, max_iter=10, w=0.5, c1=1.5, c2=2.0):
+    bounds = np.array([[0, 90],    # Tilt bounds
+                       [0, 360]])  # Azimuth bounds
+
+    swarm = [Particle(bounds) for _ in range(num_particles)]
+    global_best = swarm[0].best_position.copy()
+    global_best_score = swarm[0].best_score
+
+    for particle in swarm:
+        if particle.best_score < global_best_score:
+            global_best = particle.best_position.copy()
+            global_best_score = particle.best_score
+
+    for iteration in range(max_iter):
+        for particle in swarm:
+            particle.update_velocity(global_best, w, c1, c2)
+            particle.update_position(bounds)
+
+            if particle.best_score < global_best_score:
+                global_best = particle.best_position.copy()
+                global_best_score = particle.best_score
+
+        print(f"Iteration {iteration+1}/{max_iter} - Best Tilt: {global_best[0]:.2f}°, Azimuth: {global_best[1]:.2f}°, Irradiance: {-global_best_score:.4f} kWh/m²/day")
+
+    print("\nOptimal Configuration Found:")
+    print(f"Tilt: {global_best[0]:.2f}°")
+    print(f"Azimuth: {global_best[1]:.2f}°")
+    print(f"Max Estimated Irradiance: {-global_best_score:.4f} kWh/m²/day")
+
+if __name__ == "__main__":
+    pso()
+    
